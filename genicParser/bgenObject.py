@@ -1,5 +1,7 @@
-from . import misc as mc
+from .variantObjects import Variant
 from . import errors_codes as ec
+from . import misc as mc
+
 from pathlib import Path
 import numpy as np
 import struct
@@ -30,6 +32,77 @@ class BgenObject:
         self.iter_array_size = iter_array_size
 
         self.bgi_present = bgi_present
+
+    def create_bgi(self):
+        """
+        Mimic bgenix .bgi via python
+
+        Note
+        -----
+        This does not re-create the meta file data that bgenix makes, so if you are using this to make a bgi for another
+        process that is going to validate that then it won't work.
+
+        bgenix: https://enkre.net/cgi-bin/code/bgen/wiki/bgenix
+        """
+        self._bgen_binary.seek(self._variant_start)
+
+        lines = []
+        for i in range(self.sid_count):
+            # Isolate the block start position
+            start_position = self._bgen_binary.tell()
+
+            # Extract the Bim information, Then append the start position and then bim information
+            variant = self._get_curr_variant_info(as_list=True)
+
+            # Get the dosage size, then skip this size + the current position to get the position of the next block
+            dosage_size = self.unpack("<I", 4)
+
+            # Calculate the variant size in bytes
+            size_in_bytes = (self._bgen_binary.tell() - start_position) + dosage_size
+
+            # Append this information to lines, then seek past the dosage block
+            lines.append([start_position, size_in_bytes] + variant)
+            self._bgen_binary.seek(self._bgen_binary.tell() + dosage_size)
+        return lines
+
+    def _get_curr_variant_info(self, as_list=False):
+        """Gets the current variant's information."""
+
+        if self.layout == 1:
+            assert self.unpack("<I", 4) == self.iid_count, ec
+
+        # Reading the variant id (may be in form chr1:8045045:A:G or just a duplicate of rsid and not used currently)
+        self._read_bgen("<H", 2)
+
+        # Reading the variant rsid
+        rs_id = self._read_bgen("<H", 2)
+
+        # Reading the chromosome
+        chromosome = self._read_bgen("<H", 2)
+
+        # Reading the position
+        pos = self.unpack("<I", 4)
+
+        # Getting the alleles
+        alleles = [self._read_bgen("<I", 4) for _ in range(self._set_number_of_alleles())]
+
+        # Return the Variant - currently only supports first two alleles
+        if as_list:
+            return [chromosome, pos, rs_id, alleles[0], alleles[1]]
+        else:
+            return Variant(chromosome, pos, rs_id, alleles[0], alleles[1])
+
+    def _set_number_of_alleles(self):
+        """
+        Bgen version 2 can allow for more than 2 alleles, so if it is version 2 then unpack the number stored else
+        return 2
+        :return: number of alleles for this snp
+        :rtype: int
+        """
+        if self.layout == 2:
+            return self.unpack("<H", 2)
+        else:
+            return 2
 
     def parse_header(self):
         """
@@ -95,6 +168,21 @@ class BgenObject:
             return compression, layout, False
         else:
             return compression, layout, True
+
+    def _read_bgen(self, struct_format, size):
+        """
+        Sometimes we need to read the number of bytes read via unpack
+
+        :param struct_format: The string representation of the format to use in struct format. See struct formatting for
+            a list of example codes.
+        :type struct_format: str
+
+        :param size: The byte size
+        :type size: int
+
+        :return: Decoded bytes that where read
+        """
+        return self._bgen_binary.read(self.unpack(struct_format, size)).decode()
 
     def unpack(self, struct_format, size, list_return=False):
         """
