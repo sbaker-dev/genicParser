@@ -49,14 +49,14 @@ class Bgi:
 
         for value in bim_dict.values():
 
-            c.execute('INSERT INTO Variant VALUES {}'.format(tuple(value)))
+            c.execute(f'INSERT INTO Variant VALUES {tuple(value)}')
 
         c.execute('''CREATE TABLE Misc (
             sid_count INTEGER,
             iid_count INTEGER
         )''')
 
-        c.execute('INSERT INTO Misc VALUES {}'.format(tuple([sid_count, iid_count])))
+        c.execute(f'INSERT INTO Misc VALUES {tuple([sid_count, iid_count])}')
 
         connection.commit()
         connection.close()
