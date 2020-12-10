@@ -1,7 +1,8 @@
 from pathlib import Path
-import genicParser.errors as ec
+import genicParser.errors_codes as ec
 import sqlite3
 import numpy as np
+from .bgenObject import BgenObject
 
 
 class Bgi:
@@ -36,7 +37,8 @@ class Bgi:
 
         print(bim_dict["rs9425291"])
 
-        c.execute('''CREATE TABLE Variant (
+        c.execute('''
+            CREATE TABLE Variant (
             bed_start_position INTEGER,
             bim_start_position INTEGER,
             rsid TEXT,
@@ -74,6 +76,37 @@ class Bgi:
 
         available_table = (c.fetchall())
         print(available_table)
+
+
+    def c(self):
+        assert self.bgen
+
+        bgen_object = BgenObject(self.bgen)
+        assert bgen_object.layout == 2
+
+        bgi_lines = bgen_object.create_bgi()
+
+        connection = sqlite3.connect(r"C:\Users\Samuel\Documents\Genetic_Examples\PolyTutOut\BgenLoader\test2.bgi")
+        c = connection.cursor()
+
+        c.execute('''
+            CREATE TABLE Variant (
+            file_start_position INTEGER,
+            size_in_bytes INTEGER,
+            chromosome INTEGER,
+            position INTEGER,
+            rsid TEXT,
+            allele1 TEXT,
+            allele2 TEXT
+              )''')
+
+        for value in bgi_lines:
+
+            c.execute(f'INSERT INTO Variant VALUES {tuple(value)}')
+
+        connection.commit()
+        connection.close()
+
 
 
     @staticmethod
