@@ -10,7 +10,12 @@ class PlinkObject:
         self.bim_file = open(self.bim_file, "r")
         self.fam_file = open(self.fam_file, "r")
 
-    def construct_bim_index(self):
+    def close_all(self):
+        """Close all open files"""
+        self.bim_file.close()
+        self.fam_file.close()
+
+    def construct_bim_index(self, bgi_index=False):
         """
         Bim files need to be index via seek, so we can extract a given snp loci without having to store all of this of
         then in memory
