@@ -19,7 +19,10 @@ class PlinkObject:
         cumulative_seek = 0
         for line in self.bim_file:
             chromosome, variant_id, morgan_pos, bp_position, a1, a2 = line.split()
-            indexer[variant_id] = cumulative_seek
+            if bgi_index:
+                indexer[variant_id] = [cumulative_seek, variant_id, chromosome, morgan_pos, bp_position, a1, a2]
+            else:
+                indexer[variant_id] = cumulative_seek
             cumulative_seek += len(line)
 
         return indexer
