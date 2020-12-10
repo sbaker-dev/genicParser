@@ -1,5 +1,7 @@
 from pathlib import Path
 import genicParser.errors as ec
+import sqlite3
+import numpy as np
 
 
 class Bgi:
@@ -12,6 +14,60 @@ class Bgi:
 
     def a(self):
         assert self.bed_file
+        connection = sqlite3.connect(r"C:\Users\Samuel\Documents\Genetic_Examples\PolyTutOut\BgenLoader\test.bgi")
+        c = connection.cursor()
+
+        bim_dict = {}
+        with open(self.bim_file, "r") as f:
+            cumulative_seek = 0
+            for line in f:
+                chromosome, variant_id, morgan_pos, bp_position, a1, a2 = line.split()
+                bim_dict[variant_id] = [cumulative_seek, variant_id, chromosome, morgan_pos, bp_position, a1, a2]
+
+                cumulative_seek += len(line)
+
+        sid_count = len(bim_dict)
+
+        iid_count = len([la for la in open(self.fam_file, "r")])
+
+        with open(self.bed_file, "rb") as filepointer:
+            arrayaaa = [int(np.ceil(0.25 * iid_count) * bimIndex + 3) for bimIndex in np.arange(sid_count)]
+
+
+
+            for index, k in enumerate(bim_dict):
+                bim_dict[k] = [arrayaaa[index]] + bim_dict[k]
+
+
+        print(bim_dict["rs9425291"])
+
+        c.execute('''CREATE TABLE Variant (
+            bed_start_position INTEGER,
+            bim_start_position INTEGER,
+            rsid TEXT,
+            chromosome INTEGER,
+            morgan_pos REAL,
+            position INTEGER,
+            allele1 TEXT,
+            allele2 TEXT
+        )''')
+
+        for value in bim_dict.values():
+
+            c.execute('INSERT INTO Variant VALUES {}'.format(tuple(value)))
+
+        connection.commit()
+        connection.close()
+
+
+    def b(self):
+        connection = sqlite3.connect(r"C:\Users\Samuel\Documents\Genetic_Examples\PolyTutOut\BgenLoader\test.bgi")
+        c = connection.cursor()
+
+        c.execute("SELECT bed_start_position, rsid FROM Variant")
+        available_table = (c.fetchall())
+
+        print(available_table)
 
     @staticmethod
     def validate_paths(genetic_path):
