@@ -27,17 +27,12 @@ class Bgi:
                 cumulative_seek += len(line)
 
         sid_count = len(bim_dict)
-
         iid_count = len([la for la in open(self.fam_file, "r")])
 
-        with open(self.bed_file, "rb") as filepointer:
-            arrayaaa = [int(np.ceil(0.25 * iid_count) * bimIndex + 3) for bimIndex in np.arange(sid_count)]
+        arrayaaa = [int(np.ceil(0.25 * iid_count) * bimIndex + 3) for bimIndex in np.arange(sid_count)]
 
-
-
-            for index, k in enumerate(bim_dict):
-                bim_dict[k] = [arrayaaa[index]] + bim_dict[k]
-
+        for index, k in enumerate(bim_dict):
+            bim_dict[k] = [arrayaaa[index]] + bim_dict[k]
 
         print(bim_dict["rs9425291"])
 
@@ -56,6 +51,13 @@ class Bgi:
 
             c.execute('INSERT INTO Variant VALUES {}'.format(tuple(value)))
 
+        c.execute('''CREATE TABLE Misc (
+            sid_count INTEGER,
+            iid_count INTEGER
+        )''')
+
+        c.execute('INSERT INTO Misc VALUES {}'.format(tuple([sid_count, iid_count])))
+
         connection.commit()
         connection.close()
 
@@ -66,8 +68,13 @@ class Bgi:
 
         c.execute("SELECT bed_start_position, rsid FROM Variant")
         available_table = (c.fetchall())
-
         print(available_table)
+
+        c.execute("SELECT sid_count FROM Misc")
+
+        available_table = (c.fetchall())
+        print(available_table)
+
 
     @staticmethod
     def validate_paths(genetic_path):
