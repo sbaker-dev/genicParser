@@ -1,6 +1,5 @@
 from .plinkObject import PlinkObject
 from .bgenObject import BgenObject
-from . import errors_codes as ec
 
 from pathlib import Path
 import numpy as np
@@ -9,11 +8,7 @@ import sqlite3
 
 class Bgi:
     def __init__(self, file_path):
-        if Path(file_path).suffix == ".bgen":
-            self.bgen = Path(file_path)
-            self.bed_file = self.bim_file = self.fam_file = None
-        else:
-            self.bed_file, self.bim_file, self.fam_file, self.bgen = self.validate_paths(file_path)
+        self.file_path = Path(file_path)
 
     def create_bim_bgi(self):
         """
@@ -23,10 +18,10 @@ class Bgi:
 
         This also contains some misc data such as the count of iid and sid so that it can be quickly accessed.
         """
-        assert self.bed_file
+        assert self.file_path.suffix == (".bed" or ".bim" or ".fam")
 
         # Construct a plink object holder
-        plink = PlinkObject(self.bim_file)
+        plink = PlinkObject(self.file_path)
 
         # Load the bim data as a bgi index
         bim_dict = plink.construct_bim_index(bgi_index=True)
@@ -82,10 +77,10 @@ class Bgi:
         THis attempts to directly mimic bgi but without the meta data table so that these files can be create without
         bgenix, but also allows for it to be cross compatible with files that have been made via bgenix
         """
-        assert self.bgen
+        assert self.file_path.suffix == ".bgen"
 
         # Can only work on bgen 1.2, so validate this is true
-        bgen_object = BgenObject(self.bgen)
+        bgen_object = BgenObject(self.file_path)
         assert bgen_object.layout == 2
 
         # Create our lines for the table
@@ -114,34 +109,3 @@ class Bgi:
         # Commit the file
         connection.commit()
         connection.close()
-
-    @staticmethod
-    def validate_paths(genetic_path):
-        """
-        Users may submit a path to a specific file within plink, such as a .bed/.bim/.fam or they just provide the root
-        name. This method validates and returns the paths.
-
-        :return: The path to the bed, bim, and fam file in that order
-        """
-        # Construct path as an object
-        ld_path = Path(genetic_path)
-
-        # Check file home directory can be reached
-        assert ld_path.parent.exists(), ec.path_invalid(ld_path.parent, "_set_ld_ref")
-
-        # If a file has a plink suffix take the stem of the name otherwise just take the name
-        if (ld_path.suffix == ".bed") or (ld_path.suffix == ".bim") or (ld_path == ".fam"):
-            bed = Path(f"{str(ld_path.parent)}/{ld_path.stem}.bed")
-            bim = Path(f"{str(ld_path.parent)}/{ld_path.stem}.bim")
-            fam = Path(f"{str(ld_path.parent)}/{ld_path.stem}.fam")
-        else:
-            bed = Path(f"{str(ld_path.parent)}/{ld_path.name}.bed")
-            bim = Path(f"{str(ld_path.parent)}/{ld_path.name}.bim")
-            fam = Path(f"{str(ld_path.parent)}/{ld_path.name}.fam")
-
-        # Check the files exists then return with mode of plink, no bgen object and a bed, bim and fam file.
-        assert bed.exists(), ec.path_invalid(bed, "_set_ld_ref")
-        assert bim.exists(), ec.path_invalid(bim, "_set_ld_ref")
-        assert fam.exists(), ec.path_invalid(fam, "_set_ld_ref")
-
-        return bed, bim, fam, None
