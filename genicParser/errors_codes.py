@@ -56,10 +56,9 @@ def bgi_path_violation(bgi_path):
            f"BGI path type: {type(bgi_path)}"
 
 
-def bgen_index_violation(operation):
+def index_violation(operation):
     return f"NO INDEX HAS BEEN SET\n" \
-           f"Operation {operation} requires you to have a .bgi file made via bgenix which acts as a sql database in " \
-           f"which BgenObject will use"
+           f"Operation {operation} requires you to have a .bgi file which acts as a sql database"
 
 
 def bgen_no_variant_found(variant_name):
