@@ -55,6 +55,21 @@ class BimVariant:
         return f"{self.snp_id} - CHR{self.chromosome} - BP:{self.bp_position}/MP:{self.morgan_pos} - " \
                f"A1-{self.a1}:A2-{self.a2}"
 
+    def __getitem__(self, item):
+        """Get an item from Variant"""
+        return getattr(self, item)
+
+    def items(self):
+        """Return all the items in a list for this variant"""
+        return [self.chromosome, self.bp_position, self.snp_id, self.a1, self.a2]
+
+    def nucleotide(self, as_list=False):
+        """Return a tuple of a1 a2 as the nucleotide"""
+        if as_list:
+            return [self.a1, self.a2]
+        else:
+            return self.a1, self.a2
+
     def to_variant(self):
         """
         Bgen doesn't use morgan position, and to allow for standard variant operations rather than having optional
