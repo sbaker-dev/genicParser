@@ -1,5 +1,6 @@
-from .variantObjects import BimVariant, FamId
+from .variantObjects import BimVariant, FamId, Variant
 from . import errors_codes as ec
+from . import misc as mc
 
 from pathlib import Path
 import numpy as np
@@ -7,16 +8,50 @@ import sqlite3
 
 
 class PlinkObject:
-    def __init__(self, genetic_path, bgi_write_path=None):
+    def __init__(self, genetic_path, bgi_present=False, bgi_write_path=None):
         self.bed_file_path, self.bim_file_path, self.fam_file_path = self.validate_paths(genetic_path)
         self.bim_file = open(self.bim_file_path, "r")
         self.fam_file = open(self.fam_file_path, "r")
         self._bgi_write_path = bgi_write_path
 
+        # Set the bgi file if present, and store this for indexing if required.
+        self.bgi_present = bgi_present
+        self.bgi_file = mc.set_bgi(self.bgi_present, self.bim_file_path)
+        if self.bgi_file:
+            self.bim_connection, self.bim_index = self._connect_to_bgi_index()
+        else:
+            self.bim_connection, self.bim_index = None, None
+
     def close_all(self):
         """Close all open files"""
         self.bim_file.close()
         self.fam_file.close()
+
+    def info_array(self, as_variant=False):
+        """Return an array of all the variants in the bgen file"""
+        assert self.bim_index, ec.index_violation("info_array")
+        if as_variant:
+            self.bim_index.execute("SELECT chromosome, position, rsid, allele1, allele2 FROM Variant")
+            return np.array([Variant(chromosome, position, snp_id, a1, a2) for chromosome, position, snp_id, a1, a2
+                             in self.bim_index.fetchall()])
+        else:
+            self.bim_index.execute("SELECT chromosome, rsid, morgan_pos, position, allele1, allele2 FROM Variant")
+            return np.array([BimVariant(chromosome, variant_id, morgan_pos, bp_position, a1, a2)
+                             for chromosome, variant_id, morgan_pos, bp_position, a1, a2 in self.bim_index.fetchall()])
+
+    def info_from_sid(self, snp_names, as_variant=False):
+        """Construct an array of variant identifiers for all the snps provided to snp_names"""
+        assert self.bim_index, ec.index_violation("variant_info_from_sid")
+        if as_variant:
+            self.bim_index.execute("SELECT chromosome, position, rsid, allele1, allele2 FROM Variant"
+                                   " WHERE rsid IN {}".format(tuple(snp_names)))
+            return np.array([Variant(chromosome, position, snp_id, a1, a2) for chromosome, position, snp_id, a1, a2
+                             in self.bim_index.fetchall()])
+        else:
+            self.bim_index.execute("SELECT chromosome, rsid, morgan_pos, position, allele1, allele2 FROM Variant"
+                                   " WHERE rsid IN {}".format(tuple(snp_names)))
+            return np.array([BimVariant(chromosome, variant_id, morgan_pos, bp_position, a1, a2)
+                             for chromosome, variant_id, morgan_pos, bp_position, a1, a2 in self.bim_index.fetchall()])
 
     def create_bim_bgi(self):
         """
@@ -83,6 +118,11 @@ class PlinkObject:
             # Commit the file
             connection.commit()
             connection.close()
+
+    def _connect_to_bgi_index(self):
+        """Connect to the index (which is an SQLITE database)."""
+        bim_file = sqlite3.connect(str(self.bim_file_path.absolute()) + ".bgi")
+        return bim_file, bim_file.cursor()
 
     def construct_bim_index(self, bgi_index=False):
         """
