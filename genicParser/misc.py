@@ -1,6 +1,29 @@
+from . import errors_codes as ec
 from math import ceil
 import numpy as np
 import struct
+import os
+
+
+def set_bgi(bgi_present, base_file_path):
+    """
+    Connect to the index file either via a bgi file in the same directory or in another directory.
+    """
+
+    if not bgi_present:
+        return False
+    elif isinstance(bgi_present, str):
+        if not os.path.isfile(f"{bgi_present}"):
+            raise IOError(f"{bgi_present} was not found")
+        else:
+            return True
+    elif bgi_present:
+        if not os.path.isfile(f"{base_file_path}.bgi"):
+            raise IOError(f"{base_file_path}.bgi was not found")
+        else:
+            return True
+    else:
+        raise TypeError(ec.bgi_path_violation(bgi_present))
 
 
 def bits_to_int(bits):

@@ -8,7 +8,6 @@ import sqlite3
 import struct
 import zlib
 import zstd
-import os
 
 
 class BgenObject:
@@ -428,27 +427,6 @@ class BgenObject:
         # Check the samples extract are equal to the number present then return
         assert len(samples) == self._sample_number, ec.sample_size_violation(self._sample_number, len(samples))
         return samples
-
-    def _set_bgi(self):
-        """
-        Connect to the index file either via a bgi file in the same directory or in another directory.
-
-        """
-
-        if not self.bgi_present:
-            return False
-        elif self.bgi_present:
-            if not os.path.isfile(f"{self.file_path}.bgi"):
-                raise IOError(f"{self.file_path}.bgi was not found")
-            else:
-                return True
-        elif isinstance(self.bgi_present, str):
-            if not os.path.isfile(f"{self.bgi_present}"):
-                raise IOError(f"{self.bgi_present} was not found")
-            else:
-                return True
-        else:
-            raise TypeError(ec.bgi_path_violation(self.bgi_present))
 
     def _connect_to_bgi_index(self):
         """Connect to the index (which is an SQLITE database)."""
