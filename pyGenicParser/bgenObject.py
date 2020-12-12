@@ -128,8 +128,8 @@ class BgenObject:
         # Select all the variants where the rsid is in the names provided
         self._bgen_index.execute("SELECT chromosome, position, rsid, allele1, allele2 FROM Variant"
                                  " WHERE rsid IN {}".format(tuple(snp_names)))
-        return np.array(Variant(chromosome, position, snp_id, a1, a2) for chromosome, position, snp_id, a1, a2
-                        in self._bgen_index.fetchall())
+        return np.array([Variant(chromosome, position, snp_id, a1, a2) for chromosome, position, snp_id, a1, a2
+                         in self._bgen_index.fetchall()])
 
     def dosage_from_sid(self, snp_names):
         """Construct the dosage for all snps provide as a list or tuple of snp_names"""
