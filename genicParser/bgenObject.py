@@ -4,13 +4,14 @@ from . import misc as mc
 
 from pathlib import Path
 import numpy as np
+import sqlite3
 import struct
 import zlib
 import zstd
 
 
 class BgenObject:
-    def __init__(self, file_path, bgi_present=True, probability=None, iter_array_size=1000):
+    def __init__(self, file_path, bgi_present=True, probability=None, iter_array_size=1000, bgi_write_path=None):
         """
 
         :param file_path:
@@ -23,6 +24,7 @@ class BgenObject:
         """
 
         self.file_path = Path(file_path)
+        self._bgi_write_path = bgi_write_path
         self._bgen_binary = open(file_path, "rb")
 
         self.offset, self.headers, self.sid_count, self.iid_count, self.compression, self.layout, \
@@ -44,26 +46,63 @@ class BgenObject:
 
         bgenix: https://enkre.net/cgi-bin/code/bgen/wiki/bgenix
         """
-        self._bgen_binary.seek(self._variant_start)
 
-        lines = []
-        for i in range(self.sid_count):
-            # Isolate the block start position
-            start_position = self._bgen_binary.tell()
+        # This only works on bgen version 1.2
+        assert self.layout == 2
 
-            # Extract the Bim information, Then append the start position and then bim information
-            variant = self._get_curr_variant_info(as_list=True)
+        # Check if the file already exists
+        if not self._bgi_write_path:
+            write_path = self.file_path + ".bgi"
+        else:
+            write_path = self._bgi_write_path + self.file_path.name + ".bgi"
 
-            # Get the dosage size, then skip this size + the current position to get the position of the next block
-            dosage_size = self.unpack("<I", 4)
+        if Path(write_path).exists():
+            print("Bgi Already exists")
+        else:
 
-            # Calculate the variant size in bytes
-            size_in_bytes = (self._bgen_binary.tell() - start_position) + dosage_size
+            # Establish the connection
+            connection = sqlite3.connect(self.file_path.root)
+            c = connection.cursor()
 
-            # Append this information to lines, then seek past the dosage block
-            lines.append([start_position, size_in_bytes] + variant)
-            self._bgen_binary.seek(self._bgen_binary.tell() + dosage_size)
-        return lines
+            # Create our core table that mimics Variant bgi from bgenix
+            c.execute('''
+                CREATE TABLE Variant (
+                file_start_position INTEGER,
+                size_in_bytes INTEGER,
+                chromosome INTEGER,
+                position INTEGER,
+                rsid TEXT,
+                allele1 TEXT,
+                allele2 TEXT
+                  )''')
+
+            # Write values to table
+            for value in [self._set_bgi_lines() for _ in range(self.sid_count)]:
+                c.execute(f'INSERT INTO Variant VALUES {tuple(value)}')
+
+            # Commit the file
+            connection.commit()
+            connection.close()
+
+            self._bgen_binary.seek(self._variant_start)
+
+    def _set_bgi_lines(self):
+        """This will extract a given start position of the dosage, the size of the dosage, and the variant array"""
+        # Isolate the block start position
+        start_position = self._bgen_binary.tell()
+
+        # Extract the Bim information, Then append the start position and then bim information
+        variant = self._get_curr_variant_info(as_list=True)
+
+        # Get the dosage size, then skip this size + the current position to get the position of the next block
+        dosage_size = self.unpack("<I", 4)
+
+        # Calculate the variant size in bytes
+        size_in_bytes = (self._bgen_binary.tell() - start_position) + dosage_size
+
+        # Append this information to lines, then seek past the dosage block
+        self._bgen_binary.seek(self._bgen_binary.tell() + dosage_size)
+        return [start_position, size_in_bytes] + variant
 
     def _get_curr_variant_info(self, as_list=False):
         """Gets the current variant's information."""
