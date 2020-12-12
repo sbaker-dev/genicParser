@@ -107,13 +107,19 @@ class BgenObject:
         return np.array([Variant(chromosome, position, snp_id, a1, a2) for chromosome, position, snp_id, a1, a2
                          in self._bgen_index.fetchall()[self.sid_index]])
 
+    def dosage_array(self):
+        """Extract all the dosage information in the array"""
+        assert self._bgen_index, ec.index_violation("dosage_array")
+
+        self._bgen_index.execute("SELECT file_start_position FROM Variant")
+        return np.array([self._get_variant(seek[0], True) for seek in self._bgen_index.fetchall()[self.sid_index]])
+
     def variant_array(self):
         """Return an array of all the variants, where a variant is both the info + dosage"""
         assert self._bgen_index, ec.index_violation("variant_array")
 
         self._bgen_index.execute("SELECT file_start_position FROM Variant")
-        return np.array([self._get_variant(seek[0]) for seek in self._bgen_index.fetchall()[self.sid_index]],
-                        dtype=object)
+        return np.array([self._get_variant(seek[0]) for seek in self._bgen_index.fetchall()[self.sid_index]])
 
     def info_from_sid(self, snp_names):
         """Construct an array of variant identifiers for all the snps provided to snp_names"""
@@ -122,8 +128,8 @@ class BgenObject:
         # Select all the variants where the rsid is in the names provided
         self._bgen_index.execute("SELECT chromosome, position, rsid, allele1, allele2 FROM Variant"
                                  " WHERE rsid IN {}".format(tuple(snp_names)))
-        return np.array([Variant(chromosome, position, snp_id, a1, a2) for chromosome, position, snp_id, a1, a2
-                         in self._bgen_index.fetchall()])
+        return np.array(Variant(chromosome, position, snp_id, a1, a2) for chromosome, position, snp_id, a1, a2
+                        in self._bgen_index.fetchall())
 
     def dosage_from_sid(self, snp_names):
         """Construct the dosage for all snps provide as a list or tuple of snp_names"""
