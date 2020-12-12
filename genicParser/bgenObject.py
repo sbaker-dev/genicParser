@@ -76,8 +76,8 @@ class BgenObject:
         assert self._bgen_index, ec.index_violation("sid_array")
 
         # Fetching all the seek positions
-        self.bgen_index.execute("SELECT rsid FROM Variant")
-        return np.array([name for name in self.bgen_index.fetchall()[self.sid_index]]).flatten()
+        self._bgen_index.execute("SELECT rsid FROM Variant")
+        return np.array([name for name in self._bgen_index.fetchall()[self.sid_index]]).flatten()
 
     def iid_array(self):
         """
@@ -99,23 +99,50 @@ class BgenObject:
         else:
             return np.array([[i, i] for i in np.arange(self._sample_number)[self.iid_index]])
 
-    def variant_from_sid(self, snp_names):
+    def info_array(self):
+        """Return an array of all the variants in the bgen file"""
+        assert self._bgen_index, ec.index_violation("info_array")
+
+        self._bgen_index.execute("SELECT chromosome, position, rsid, allele1, allele2 FROM Variant")
+        return np.array([Variant(chromosome, position, snp_id, a1, a2) for chromosome, position, snp_id, a1, a2
+                         in self._bgen_index.fetchall()[self.sid_index]])
+
+    def variant_array(self):
+        """Return an array of all the variants, where a variant is both the info + dosage"""
+        assert self._bgen_index, ec.index_violation("variant_array")
+
+        self._bgen_index.execute("SELECT file_start_position FROM Variant")
+        return np.array([self._get_variant(seek[0]) for seek in self._bgen_index.fetchall()[self.sid_index]],
+                        dtype=object)
+
+    def info_from_sid(self, snp_names):
         """Construct an array of variant identifiers for all the snps provided to snp_names"""
-        assert self.bgen_index, ec.bgen_index_violation("get_variant")
+        assert self._bgen_index, ec.index_violation("variant_info_from_sid")
 
         # Select all the variants where the rsid is in the names provided
-        self.bgen_index.execute("SELECT file_start_position FROM Variant WHERE rsid IN {}".format(tuple(snp_names)))
-        return np.array([self.get_variant(seek[0]) for seek in self.bgen_index.fetchall()])
+        self._bgen_index.execute("SELECT chromosome, position, rsid, allele1, allele2 FROM Variant"
+                                 " WHERE rsid IN {}".format(tuple(snp_names)))
+        return np.array([Variant(chromosome, position, snp_id, a1, a2) for chromosome, position, snp_id, a1, a2
+                         in self._bgen_index.fetchall()])
 
     def dosage_from_sid(self, snp_names):
-        """Construct the seek index for all snps provide as a list or tuple of snp_names"""
-        assert self.bgen_index, ec.bgen_index_violation("get_variant")
+        """Construct the dosage for all snps provide as a list or tuple of snp_names"""
+        assert self._bgen_index, ec.index_violation("dosage_from_sid")
 
         # Select all the variants where the rsid is in the names provided
-        self.bgen_index.execute("SELECT file_start_position FROM Variant WHERE rsid IN {}".format(tuple(snp_names)))
-        return np.array([self.get_variant(seek[0], True)[self.iid_index] for seek in self.bgen_index.fetchall()])
+        self._bgen_index.execute("SELECT file_start_position FROM Variant WHERE rsid IN {}".format(tuple(snp_names)))
+        return np.array([self._get_variant(seek[0], True)[self.iid_index] for seek in self._bgen_index.fetchall()])
 
-    def get_variant(self, seek, dosage=False):
+    def variant_from_sid(self, snp_names):
+        """Variant information for all snps within snp_names"""
+        assert self._bgen_index, ec.index_violation("dosage_from_sid")
+
+        # Select all the variants where the rsid is in the names provided
+        self._bgen_index.execute("SELECT file_start_position FROM Variant WHERE rsid IN {}".format(tuple(snp_names)))
+        return np.array([self._get_variant(seek[0])[self.iid_index] for seek in self._bgen_index.fetchall()],
+                        dtype=object)
+
+    def _get_variant(self, seek, dosage=False):
         """
         Use the index of seek to move to the location of the variant in the file, then return the variant as Variant
         """
