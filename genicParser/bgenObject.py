@@ -77,14 +77,13 @@ class BgenObject:
                   )''')
 
             # Write values to table
+            self._bgen_binary.seek(self._variant_start)
             for value in [self._set_bgi_lines() for _ in range(self.sid_count)]:
                 c.execute(f'INSERT INTO Variant VALUES {tuple(value)}')
 
             # Commit the file
             connection.commit()
             connection.close()
-
-            self._bgen_binary.seek(self._variant_start)
 
     def _set_bgi_lines(self):
         """This will extract a given start position of the dosage, the size of the dosage, and the variant array"""
