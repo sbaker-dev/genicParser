@@ -2,18 +2,87 @@ from .variantObjects import BimVariant, FamId
 from . import errors_codes as ec
 
 from pathlib import Path
+import numpy as np
+import sqlite3
 
 
 class PlinkObject:
-    def __init__(self, genetic_path):
-        self.bed_file, self.bim_file, self.fam_file = self.validate_paths(genetic_path)
-        self.bim_file = open(self.bim_file, "r")
-        self.fam_file = open(self.fam_file, "r")
+    def __init__(self, genetic_path, bgi_write_path=None):
+        self.bed_file_path, self.bim_file_path, self.fam_file_path = self.validate_paths(genetic_path)
+        self.bim_file = open(self.bim_file_path, "r")
+        self.fam_file = open(self.fam_file_path, "r")
+        self._bgi_write_path = bgi_write_path
 
     def close_all(self):
         """Close all open files"""
         self.bim_file.close()
         self.fam_file.close()
+
+    def create_bim_bgi(self):
+        """
+        This will create a 'mock' .bgi akin to bgenix but with a few differences. Firstly, given information of plink is
+        stored in different files this new .bgi acts as the old .bim. It contains all the information bim does, but with
+        the variant starting position within the bed file so that it can quickly be parsed out.
+
+        This also contains some misc data such as the count of iid and sid so that it can be quickly accessed.
+        """
+        # Check if the file already exists
+        if not self._bgi_write_path:
+            write_path = Path(str(self.bim_file_path.absolute()) + ".bgi")
+        else:
+            write_path = self._bgi_write_path + self.bim_file_path.name + ".bgi"
+
+        if Path(write_path).exists():
+            print(f"Bgi Already exists for {self.bim_file_path.name}")
+        else:
+            # Establish the connection
+            connection = sqlite3.connect(write_path)
+            c = connection.cursor()
+
+            # Load the bim data as a bgi index
+            bim_dict = self.construct_bim_index(bgi_index=True)
+
+            # Set the number of snps to the be the length of the dict, and get the length of iid from fam length
+            sid_count = len(bim_dict)
+            iid_count = len(self.get_family_identifiers())
+            self.close_all()
+
+            # Construct the bed array based on its byte formula
+            # See https://www.cog-genomics.org/plink/1.9/formats#bed
+            bed_array = [int(np.ceil(0.25 * iid_count) * bimIndex + 3) for bimIndex in np.arange(sid_count)]
+
+            # Append this to the front of our dict of values
+            for index, k in enumerate(bim_dict):
+                bim_dict[k] = [bed_array[index]] + bim_dict[k]
+
+            # Create our core table that mimics bgi from bgenix but with bed and bim
+            c.execute('''
+                   CREATE TABLE Variant (
+                   bed_start_position INTEGER,
+                   bim_start_position INTEGER,
+                   rsid TEXT,
+                   chromosome INTEGER,
+                   morgan_pos REAL,
+                   position INTEGER,
+                   allele1 TEXT,
+                   allele2 TEXT
+               )''')
+
+            # Append our values into this table
+            for value in bim_dict.values():
+                c.execute(f'INSERT INTO Variant VALUES {tuple(value)}')
+
+            # Create a misc table of sid_count and iid_count
+            c.execute('''
+                   CREATE TABLE Misc (
+                   sid_count INTEGER,
+                   iid_count INTEGER
+               )''')
+            c.execute(f'INSERT INTO Misc VALUES {tuple([sid_count, iid_count])}')
+
+            # Commit the file
+            connection.commit()
+            connection.close()
 
     def construct_bim_index(self, bgi_index=False):
         """
