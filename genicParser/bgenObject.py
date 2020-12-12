@@ -37,42 +37,43 @@ class BgenObject:
 
         # Extract from header
         self._offset, self._headers_size, self._variant_number, self._sample_number, self._compression, \
-            self._compressed, self._layout, self._sample_identifiers, self._variant_start = self.parse_header()
+            self._compressed, self._layout, self._sample_identifiers, self._variant_start = self._parse_header()
 
         # Index our sid and iid values if we have indexes, else the value is the same as variant/sample_number
-        self.sid_count = len(np.arange(self._variant_number)[self.sid_index])
         self.iid_count = len(np.arange(self._sample_number)[self.iid_index])
+        self.sid_count = len(np.arange(self._variant_number)[self.sid_index])
 
         # Store numbers for altering functionality
-        self.probability_return = probability_return
-        self.probability = probability
+        self._probability_return = probability_return
+        self._probability = probability
 
         # Set the bgi file if present, and store this for indexing if required.
-        self.bgi_present = bgi_present
-        self.bgi_file = self._set_bgi()
-        if self.bgi_file:
-            self.bgen_file, self.bgen_index, self.last_variant_block = self._connect_to_bgi_index()
+        self._bgi_present = bgi_present
+        self._bgi_file = mc.set_bgi(self._bgi_present, self.file_path)
+        if self._bgi_file:
+            self._bgen_connection, self._bgen_index, self._last_variant_block = self._connect_to_bgi_index()
         else:
-            self.bgen_file, self.bgen_index, self.last_variant_block = None, None, None
+            self._bgen_connection, self._bgen_index, self._last_variant_block = None, None, None
+
+    def __repr__(self):
+        return f"Bgen file of dimensions iid:sid -- {self.iid_count}:{self.sid_count}"
 
     def __getitem__(self, item):
         """Return a new BgenObject with slicing set."""
         if isinstance(item, slice):
-            return BgenObject(self.file_path, self.bgi_present, self.probability_return, self.probability,
+            return BgenObject(self.file_path, self._bgi_present, self._probability_return, self._probability,
                               iid_index=item)
 
         elif isinstance(item, tuple):
             assert np.sum([isinstance(s, slice) for s in item]) == 2, ec.slice_error(item)
-            return BgenObject(self.file_path, self.bgi_present, self.probability_return, self.probability,
+            return BgenObject(self.file_path, self._bgi_present, self._probability_return, self._probability,
                               iid_index=item[0], sid_index=item[1])
         else:
             raise Exception(ec.invalid_slice(item))
 
     def sid_array(self):
-        """
-        Construct an array of all the snps that exist in this file
-        """
-        assert self.bgen_index, ec.bgen_index_violation("sid_array")
+        """Construct an array of all the snps that exist in this file"""
+        assert self._bgen_index, ec.index_violation("sid_array")
 
         # Fetching all the seek positions
         self.bgen_index.execute("SELECT rsid FROM Variant")
@@ -124,13 +125,13 @@ class BgenObject:
         if dosage:
             return self._get_curr_variant_data()
         else:
-            return variant
+            return variant, self._get_curr_variant_data()
 
     def _get_curr_variant_info(self, as_list=False):
         """Gets the current variant's information."""
 
         if self._layout == 1:
-            assert self.unpack("<I", 4) == self.iid_count, ec
+            assert self._unpack("<I", 4) == self.iid_count, ec
 
         # Reading the variant id (may be in form chr1:8045045:A:G or just a duplicate of rsid and not used currently)
         self._read_bgen("<H", 2)
@@ -142,7 +143,7 @@ class BgenObject:
         chromosome = self._read_bgen("<H", 2)
 
         # Reading the position
-        pos = self.unpack("<I", 4)
+        pos = self._unpack("<I", 4)
 
         # Getting the alleles
         alleles = [self._read_bgen("<I", 4) for _ in range(self._set_number_of_alleles())]
@@ -161,7 +162,7 @@ class BgenObject:
         :rtype: int
         """
         if self._layout == 2:
-            return self.unpack("<H", 2)
+            return self._unpack("<H", 2)
         else:
             return 2
 
@@ -173,7 +174,7 @@ class BgenObject:
             # Getting the probabilities
             probs = self._get_curr_variant_probs_layout_1()
 
-            if self.probability_return:
+            if self._probability_return:
                 # Returning the probabilities
                 return probs
 
@@ -185,7 +186,7 @@ class BgenObject:
             # Getting the probabilities
             probs, missing_data = self._get_curr_variant_probs_layout_2()
 
-            if self.probability_return:
+            if self._probability_return:
                 # Getting the alternative allele homozygous probabilities
                 last_probs = self._get_layout_2_last_probs(probs)
 
@@ -213,7 +214,7 @@ class BgenObject:
         """Gets the current variant's probabilities (layout 1)."""
         c = self._sample_number
         if self._compressed:
-            c = self.unpack("<I", 4)
+            c = self._unpack("<I", 4)
 
         # Getting the probabilities
         probs = np.frombuffer(
@@ -228,15 +229,15 @@ class BgenObject:
         """Transforms probability values to dosage (from layout 1)"""
         # Constructing the dosage
         dosage = 2 * probs[:, 2] + probs[:, 1]
-        if self.probability > 0:
-            dosage[~np.any(probs >= self.probability, axis=1)] = np.nan
+        if self._probability > 0:
+            dosage[~np.any(probs >= self._probability, axis=1)] = np.nan
 
         return dosage
 
     def _get_curr_variant_probs_layout_2(self):
         """Gets the current variant's probabilities (layout 2)."""
         # The total length C of the rest of the data for this variant
-        c = self.unpack("<I", 4)
+        c = self._unpack("<I", 4)
 
         # The number of bytes to read
         to_read = c
@@ -246,7 +247,7 @@ class BgenObject:
         if self._compressed:
             # The total length D of the probability data after
             # decompression
-            d = self.unpack("<I", 4)
+            d = self._unpack("<I", 4)
             to_read = c - 4
 
         # Reading the data and checking
@@ -332,16 +333,16 @@ class BgenObject:
         dosage = 2 * last_probs + probs[:, 1]
 
         # Setting low quality to NaN
-        if self.probability > 0:
+        if self._probability > 0:
             good_probs = (
-                    np.any(probs >= self.probability, axis=1) |
-                    (last_probs >= self.probability)
+                    np.any(probs >= self._probability, axis=1) |
+                    (last_probs >= self._probability)
             )
             dosage[~good_probs] = np.nan
 
         return dosage
 
-    def parse_header(self):
+    def _parse_header(self):
         """
         Extract information from the header of the bgen file.
 
@@ -351,17 +352,17 @@ class BgenObject:
         """
 
         # Check the header block is not larger than offset
-        offset = self.unpack("<I", 4)
-        headers_size = self.unpack("<I", 4)
+        offset = self._unpack("<I", 4)
+        headers_size = self._unpack("<I", 4)
         assert headers_size <= offset, ec.offset_violation(self._bgen_binary.name, offset, headers_size)
         variant_start = offset + 4
 
         # Extract the number of variants and samples
-        variant_number = self.unpack("<I", 4)
-        sample_number = self.unpack("<I", 4)
+        variant_number = self._unpack("<I", 4)
+        sample_number = self._unpack("<I", 4)
 
         # Check the file is valid
-        magic = self.unpack("4s", 4)
+        magic = self._unpack("4s", 4)
         assert (magic == b'bgen') or (struct.unpack("<I", magic)[0] == 0), ec.magic_violation(self._bgen_binary.name)
 
         # Skip the free data area
@@ -413,12 +414,12 @@ class BgenObject:
     def _parse_sample_block(self):
         """Parses the sample block."""
         # Getting the block size
-        block_size = self.unpack("<I", 4)
+        block_size = self._unpack("<I", 4)
         assert block_size + self._headers_size == self._offset, ec.sample_block_violation(
             self._headers_size, self._offset, block_size)
 
         # Checking the number of samples
-        n = self.unpack("<I", 4)
+        n = self._unpack("<I", 4)
         assert n == self._sample_number, ec.sample_size_violation(self._sample_number, n)
 
         # Getting the sample information
@@ -515,7 +516,7 @@ class BgenObject:
         variant = self._get_curr_variant_info(as_list=True)
 
         # Get the dosage size, then skip this size + the current position to get the position of the next block
-        dosage_size = self.unpack("<I", 4)
+        dosage_size = self._unpack("<I", 4)
 
         # Calculate the variant size in bytes
         size_in_bytes = (self._bgen_binary.tell() - start_position) + dosage_size
@@ -537,9 +538,9 @@ class BgenObject:
 
         :return: Decoded bytes that where read
         """
-        return self._bgen_binary.read(self.unpack(struct_format, size)).decode()
+        return self._bgen_binary.read(self._unpack(struct_format, size)).decode()
 
-    def unpack(self, struct_format, size, list_return=False):
+    def _unpack(self, struct_format, size, list_return=False):
         """
         Use a given struct formatting to unpack a byte code
 
