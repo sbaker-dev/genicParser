@@ -12,7 +12,7 @@ import os
 
 
 class BgenObject:
-    def __init__(self, file_path, bgi_present=True, probability_return=None, probability=None,
+    def __init__(self, file_path, bgi_present=True, probability_return=None, probability=0.9,
                  iid_index=slice(None, None, None), sid_index=slice(None, None, None),
                  sample_path=None, bgi_write_path=None):
         """
