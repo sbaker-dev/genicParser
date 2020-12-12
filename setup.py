@@ -2,7 +2,7 @@
 
 DESCRIPTION = "Parse Genetic files via bgi like sql indexing"
 LONG_DESCRIPTION = """
-# genicParser
+# PyGenicParser
 
 Parse Genetic files via bgi like sql indexing
 
@@ -10,17 +10,17 @@ Designed to use sql database style of metadata created by bgenix .bgi files for 
 and bgen file formats. This was a generalisation of the approach used by the [pybgen], with an attempt to include some
 of the features of [pysnptools] such as indexing, although this system isn't as clever in terms of reads.
 
-All the source code can be found at the [pyGenicPipeline git repository](https://github.com/sbaker-dev/genicParser)
+All the source code can be found at the [PyGenicParser git repository](https://github.com/sbaker-dev/pyGenicParser)
 
 """
 LONG_DESCRIPTION_CONTENT_TYPE = "text/markdown"
 
-DISTNAME = 'genicParser'
+DISTNAME = 'pyGenicParser'
 MAINTAINER = 'Samuel Baker'
 MAINTAINER_EMAIL = 'samuelbaker.researcher@gmail.com'
 LICENSE = 'MIT'
-DOWNLOAD_URL = "https://github.com/sbaker-dev/genicParser"
-VERSION = "0.02.0"
+DOWNLOAD_URL = "https://github.com/sbaker-dev/pyGenicParser"
+VERSION = "0.02.1"
 PYTHON_REQUIRES = ">=3.7"
 
 INSTALL_REQUIRES = [
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     import sys
 
     if sys.version_info[:2] < (3, 7):
-        raise RuntimeError("genicParser requires python >= 3.7.")
+        raise RuntimeError("pyGenicParser requires python >= 3.7.")
 
     setup(
         name=DISTNAME,
