@@ -16,6 +16,17 @@ def offset_violation(file_name, offset, header_block_length):
            f"Offset: {offset} header_block_length {header_block_length}"
 
 
+def sample_block_violation(header, offset, block_size):
+    return f"INVALID BLOCK SIZE\n" \
+           f"The header block + the offset should equal the length of the sample block yet found\n" \
+           f"header {header}, offset {offset}, block_size {block_size}"
+
+
+def sample_size_violation(sample_size, found_size):
+    return f"INVALID SAMPLE SIZE\n" \
+           f"The sample size for this file is set to {sample_size} yet the file found {found_size}"
+
+
 def compression_violation(file_name, compression_flag):
     return f"INVALID COMPRESSION FLAG for file at path: {file_name}\n" \
            f"Bgen files have a flag, where the first two bits represent the compression of the data with 0 being " \
@@ -53,4 +64,15 @@ def bgen_index_violation(operation):
 
 def bgen_no_variant_found(variant_name):
     return f"NO VARIANT NAMED {variant_name} FOUND"
+
+
+def invalid_slice(slice_item):
+    return f"INVALID SLICE\n" \
+           f"Slice takes a slice or a tuple of two slices yet was passed type - {type(slice_item)} for {slice_item}"
+
+
+def slice_error(slice_tuple):
+    return f"TUPLE OF SLICE LENGTH IS NOT EQUAL TO 2\n" \
+           f"You can pass two slices for iid and sid, for example [:7, :7] for the first 7 iid and snps\n" \
+           f"However found {slice_tuple}"
 
