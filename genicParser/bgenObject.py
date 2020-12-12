@@ -52,16 +52,16 @@ class BgenObject:
 
         # Check if the file already exists
         if not self._bgi_write_path:
-            write_path = self.file_path + ".bgi"
+            write_path = str(self.file_path.absolute()) + ".bgi"
         else:
             write_path = self._bgi_write_path + self.file_path.name + ".bgi"
 
         if Path(write_path).exists():
-            print("Bgi Already exists")
+            print(f"Bgi Already exists for {self.file_path.name}")
         else:
 
             # Establish the connection
-            connection = sqlite3.connect(self.file_path.root)
+            connection = sqlite3.connect(write_path)
             c = connection.cursor()
 
             # Create our core table that mimics Variant bgi from bgenix
