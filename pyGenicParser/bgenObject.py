@@ -509,7 +509,7 @@ class BgenObject:
         if not self._bgi_write_path:
             write_path = str(self.file_path.absolute()) + ".bgi"
         else:
-            write_path = self._bgi_write_path + self.file_path.name + ".bgi"
+            write_path = str(Path(self._bgi_write_path, self.file_path.name).absolute()) + ".bgi"
 
         if Path(write_path).exists():
             print(f"Bgi Already exists for {self.file_path.name}")
@@ -539,6 +539,7 @@ class BgenObject:
             # Commit the file
             connection.commit()
             connection.close()
+            self._bgen_binary.close()
 
     def _set_bgi_lines(self):
         """This will extract a given start position of the dosage, the size of the dosage, and the variant array"""
