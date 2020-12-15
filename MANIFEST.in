@@ -1,0 +1,8 @@
+include pyGenicParser/Tests/Data/EUR.ldpred_21.bed
+include pyGenicParser/Tests/Data/EUR.ldpred_21.bim
+include pyGenicParser/Tests/Data/EUR.ldpred_21.fam
+include pyGenicParser/Tests/Data/EUR.ldpred_21.bgen
+include pyGenicParser/Tests/Data/EUR.ldpred_21.bgen.bgi
+include pyGenicParser/Tests/Data/EUR.ldpred_21.bim.bgi
+
+include pyGenicParser/Tests/Data/Write/write.txt
