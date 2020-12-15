@@ -54,6 +54,7 @@ class BgenObject:
             self._bgen_connection, self._bgen_index, self._last_variant_block = self._connect_to_bgi_index()
         else:
             self._bgen_connection, self._bgen_index, self._last_variant_block = None, None, None
+        self._bgen_binary.close()
 
     def __repr__(self):
         return f"Bgen file of dimensions iid:sid -- {self.iid_count}:{self.sid_count}"
@@ -110,45 +111,72 @@ class BgenObject:
     def dosage_array(self):
         """Extract all the dosage information in the array"""
         assert self._bgen_index, ec.index_violation("dosage_array")
+        self._bgen_binary = open(self.file_path, "rb")
 
         self._bgen_index.execute("SELECT file_start_position FROM Variant")
-        return np.array([self._get_variant(seek[0], True) for seek in self._bgen_index.fetchall()[self.sid_index]])
+        dosage = np.array([self._get_variant(seek[0], True) for seek in self._bgen_index.fetchall()[self.sid_index]])
+        self._bgen_binary.close()
+        return dosage
 
     def variant_array(self):
         """Return an array of all the variants, where a variant is both the info + dosage"""
         assert self._bgen_index, ec.index_violation("variant_array")
+        self._bgen_binary = open(self.file_path, "rb")
 
         self._bgen_index.execute("SELECT file_start_position FROM Variant")
-        return np.array([self._get_variant(seek[0]) for seek in self._bgen_index.fetchall()[self.sid_index]])
+        variants = np.array([self._get_variant(seek[0]) for seek in self._bgen_index.fetchall()[self.sid_index]],
+                            dtype=object)
+
+        self._bgen_binary.close()
+        return variants
 
     def info_from_sid(self, snp_names):
         """Construct an array of variant identifiers for all the snps provided to snp_names"""
         assert self._bgen_index, ec.index_violation("variant_info_from_sid")
 
         # Select all the variants where the rsid is in the names provided
-        self._bgen_index.execute("SELECT chromosome, position, rsid, allele1, allele2 FROM Variant"
-                                 " WHERE rsid IN {}".format(tuple(snp_names)))
+        if len(snp_names) > 1:
+            self._bgen_index.execute(f"SELECT chromosome, position, rsid, allele1, allele2 FROM Variant"
+                                     f" WHERE rsid IN {tuple(snp_names)}")
+        elif len(snp_names) == 1:
+            self._bgen_index.execute(f"SELECT chromosome, position, rsid, allele1, allele2 FROM Variant"
+                                     f" WHERE rsid = '{snp_names[0]}'")
+        else:
+            print("No names passed - skipping")
+
         return np.array([Variant(chromosome, position, snp_id, a1, a2) for chromosome, position, snp_id, a1, a2
                          in self._bgen_index.fetchall()])
 
     def dosage_from_sid(self, snp_names):
         """Construct the dosage for all snps provide as a list or tuple of snp_names"""
-        assert self._bgen_index, ec.index_violation("dosage_from_sid")
+        self._set_snp_names_file_positions(snp_names)
 
-        # Select all the variants where the rsid is in the names provided
-        self._bgen_index.execute("SELECT file_start_position FROM Variant WHERE rsid IN {}".format(tuple(snp_names)))
-        return np.array([self._get_variant(seek[0], True)[self.iid_index] for seek in self._bgen_index.fetchall()])
+        dosage = np.array([self._get_variant(seek[0], True)[self.iid_index] for seek in self._bgen_index.fetchall()])
+        self._bgen_binary.close()
+        return dosage
 
     def variant_from_sid(self, snp_names):
         """Variant information for all snps within snp_names"""
+        self._set_snp_names_file_positions(snp_names)
+        variants = np.array([self._get_variant(seek[0])[self.iid_index] for seek in self._bgen_index.fetchall()],
+                            dtype=object)
+        self._bgen_binary.close()
+        return variants
+
+    def _set_snp_names_file_positions(self, snp_names):
         assert self._bgen_index, ec.index_violation("dosage_from_sid")
+        self._bgen_binary = open(self.file_path, "rb")
 
         # Select all the variants where the rsid is in the names provided
-        self._bgen_index.execute("SELECT file_start_position FROM Variant WHERE rsid IN {}".format(tuple(snp_names)))
-        return np.array([self._get_variant(seek[0])[self.iid_index] for seek in self._bgen_index.fetchall()],
-                        dtype=object)
+        if len(snp_names) > 1:
+            self._bgen_index.execute(f"SELECT file_start_position FROM Variant WHERE rsid IN {tuple(snp_names)}")
+        elif len(snp_names) == 1:
+            self._bgen_index.execute(f"SELECT file_start_position FROM Variant WHERE rsid = '{snp_names[0]}'")
+        else:
+            print("No names passed - skipping")
 
     def _get_variant(self, seek, dosage=False):
+
         """
         Use the index of seek to move to the location of the variant in the file, then return the variant as Variant
         """
@@ -514,7 +542,6 @@ class BgenObject:
         if Path(write_path).exists():
             print(f"Bgi Already exists for {self.file_path.name}")
         else:
-
             # Establish the connection
             connection = sqlite3.connect(write_path)
             c = connection.cursor()
@@ -532,6 +559,7 @@ class BgenObject:
                    )''')
 
             # Write values to table
+            self._bgen_binary = open(self.file_path, "rb")
             self._bgen_binary.seek(self._variant_start)
             for value in [self._set_bgi_lines() for _ in range(self.sid_count)]:
                 c.execute(f'INSERT INTO Variant VALUES {tuple(value)}')
