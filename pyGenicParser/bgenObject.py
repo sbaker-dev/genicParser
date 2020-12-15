@@ -94,7 +94,7 @@ class BgenObject:
         :return: An array of id information
         """
         if self._sample_identifiers:
-            return self._parse_sample_block()
+            return np.array(self._parse_sample_block())
         elif self._sample_path:
             raise NotImplementedError("Sorry this needs to be tested")
         else:
@@ -164,6 +164,7 @@ class BgenObject:
         return variants
 
     def _set_snp_names_file_positions(self, snp_names):
+        """A tuple of 1 will lead to sql crashing if using IN, so we need to acount for length 1 arrays"""
         assert self._bgen_index, ec.index_violation("dosage_from_sid")
         self._bgen_binary = open(self.file_path, "rb")
 
@@ -474,6 +475,9 @@ class BgenObject:
 
     def _parse_sample_block(self):
         """Parses the sample block."""
+        self._bgen_binary = open(self.file_path, "rb")
+        self._parse_header()
+
         # Getting the block size
         block_size = self._unpack("<I", 4)
         assert block_size + self._headers_size == self._offset, ec.sample_block_violation(
@@ -487,6 +491,7 @@ class BgenObject:
         samples = [self._read_bgen("<H", 2) for _ in range(self._sample_number)]
 
         # Check the samples extract are equal to the number present then return
+        self._bgen_binary.close()
         assert len(samples) == self._sample_number, ec.sample_size_violation(self._sample_number, len(samples))
         return samples
 
