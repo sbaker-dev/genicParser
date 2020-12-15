@@ -20,7 +20,7 @@ MAINTAINER = 'Samuel Baker'
 MAINTAINER_EMAIL = 'samuelbaker.researcher@gmail.com'
 LICENSE = 'MIT'
 DOWNLOAD_URL = "https://github.com/sbaker-dev/pyGenicParser"
-VERSION = "0.02.3"
+VERSION = "0.03.0"
 PYTHON_REQUIRES = ">=3.7"
 
 INSTALL_REQUIRES = [
