@@ -65,10 +65,11 @@ class PlinkObject:
         if not self._bgi_write_path:
             write_path = Path(str(self.bim_file_path.absolute()) + ".bgi")
         else:
-            write_path = self._bgi_write_path + self.bim_file_path.name + ".bgi"
+            write_path = str(Path(self._bgi_write_path, self.bim_file_path.name).absolute()) + ".bgi"
 
         if Path(write_path).exists():
             print(f"Bgi Already exists for {self.bim_file_path.name}")
+            self.close_all()
         else:
             # Establish the connection
             connection = sqlite3.connect(write_path)
