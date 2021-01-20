@@ -154,6 +154,34 @@ class BgenObject:
         else:
             return np.array([i for i, snp in enumerate(self.sid_array()[self.sid_index]) if snp in set(snps)])
 
+    def iid_to_index(self, iid_list, set_failed=False):
+        """Isolate the iid indexes of the iid in the iid_list"""
+        if set_failed:
+            # todo implement it
+            raise NotImplementedError("Sorry, set failed not yet implemented")
+        else:
+            iid_indexed = self.iid_array()[self.iid_index]
+            iid_indexed_values = [self._index_idd(current_id, iid_indexed) for current_id in iid_list]
+            return np.array([iid for iid in iid_indexed_values if iid or iid == 0])
+
+    @staticmethod
+    def _index_idd(current_id, iid_indexed):
+        """
+        Get the index of the current iid from the current indexed iid array
+
+        :param current_id: The current idd we want the index position of
+        :type current_id: np.ndarray
+
+        :param iid_indexed: The iid_array after indexing that we calculated once and will now use for iteration
+        :type iid_indexed: np.ndarray
+
+        :return: The index
+        :rtype: int
+        """
+        for i, iid in enumerate(iid_indexed):
+            if all(iid == current_id):
+                return i
+
     def info_array(self):
         """Return an array of all the variants in the bgen file"""
         assert self._bgen_index, ec.index_violation("info_array")
