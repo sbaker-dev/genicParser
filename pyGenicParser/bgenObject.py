@@ -22,6 +22,12 @@ class BgenObject:
             otherwise can ec passed as a path if it is in a different directory.
         :type bgi_present: bool | str
 
+        :param iid_index: The default slice or np.ndarray that was create from getitem for the iid
+        :type iid_index: slice | np.ndarray
+
+        :param sid_index: The default slice or np.ndarray that was create from getitem for the sid
+        :type sid_index: slice | np.ndarray
+
         :param probability:
         """
 
@@ -56,20 +62,46 @@ class BgenObject:
         self._bgen_binary.close()
 
     def __repr__(self):
-        return f"Bgen file of dimensions iid:sid -- {self.iid_count}:{self.sid_count}"
+        return f"Bgen iid:sid -> {self.iid_count}:{self.sid_count}"
 
     def __getitem__(self, item):
         """Return a new BgenObject with slicing set."""
-        if isinstance(item, slice):
-            return BgenObject(self.file_path, self._bgi_present, self._probability_return, self._probability,
-                              iid_index=item)
+        # We always index on iid and sid so we need to have both
+        assert len(item) == 2, ec.slice_error(type(item), len(item))
+        iid_slicer, sid_slicer = item
 
-        elif isinstance(item, tuple):
-            assert np.sum([isinstance(s, slice) for s in item]) == 2, ec.slice_error(item)
-            return BgenObject(self.file_path, self._bgi_present, self._probability_return, self._probability,
-                              iid_index=item[0], sid_index=item[1])
+        return BgenObject(self.file_path, self._bgi_present, self._probability_return, self._probability,
+                          self._sample_path, self._set_slice(iid_slicer), self._set_slice(sid_slicer, False))
+
+    def _set_slice(self, slice_object, iid=True):
+        """
+        Users may provide a slice or a list of indexes, for example from sid_to_index, so we need to set the indexes
+        accordingly here
+
+        :param slice_object: The slicing slice or list of indexes
+        :type slice_object: slice | list
+
+        :return: Numpy array of indexes
+        :rtype: np.ndarray
+
+        :raises TypeError: If the slicer is not a slice or list
+        """
+
+        if isinstance(slice_object, slice):
+            if iid:
+                return np.arange(self._sample_number)[slice_object]
+            else:
+                return np.arange(self._variant_number)[slice_object]
+
+        elif isinstance(slice_object, list):
+            assert all([isinstance(index, int) for index in slice_object]), ec.slice_list_type()
+            if iid:
+                return np.take(np.arange(self._sample_number), slice_object)
+            else:
+                return np.take(np.arange(self._variant_number), slice_object)
+
         else:
-            raise Exception(ec.invalid_slice(item))
+            raise TypeError(ec.wrong_slice_type(type(slice_object)))
 
     def sid_array(self):
         """Construct an array of all the snps that exist in this file"""

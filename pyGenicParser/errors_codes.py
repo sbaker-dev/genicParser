@@ -70,8 +70,19 @@ def invalid_slice(slice_item):
            f"Slice takes a slice or a tuple of two slices yet was passed type - {type(slice_item)} for {slice_item}"
 
 
-def slice_error(slice_tuple):
-    return f"TUPLE OF SLICE LENGTH IS NOT EQUAL TO 2\n" \
-           f"You can pass two slices for iid and sid, for example [:7, :7] for the first 7 iid and snps\n" \
-           f"However found {slice_tuple}"
+def slice_error(slice_type, slice_length):
+    return f"TUPLE OF SLICES IS NOT EQUAL TO 2\n" \
+           f"You must pass two slices for iid and sid, for example [:7, :7] for the first 7 iid and snps\n" \
+           f"However found a {slice_type} of length {slice_length}"
 
+
+def wrong_slice_type(slice_type):
+    return f"SLICE IS NETHER SLICE OR LIST\n" \
+           f"You must pass the indexer of iid or sid as a slice, for example :3, or as a list of indexes, eg[0, 1, 2]" \
+           f"\nYet Found {slice_type}"
+
+
+def slice_list_type():
+    return f"SLICE LIST IS NOT A LIST OF INTS\n" \
+           f"Slicing takes a slice, or a list of ints that are the indexes.\nDid you forget to convert iids/sids into " \
+           f"indexes?"
