@@ -93,12 +93,15 @@ class BgenObject:
             else:
                 return np.arange(self._variant_number)[slice_object]
 
-        elif isinstance(slice_object, list):
-            assert all([isinstance(index, int) for index in slice_object]), ec.slice_list_type()
+        elif isinstance(slice_object, (list, np.ndarray)):
+            assert all([isinstance(index, (int, np.int32)) for index in slice_object]), ec.slice_list_type()
+
+            # If failures are turned on in sid_to_index we will get negative indexes which we want to remove
+            valid_values = [v for v in slice_object if v >= 0]
             if iid:
-                return np.take(np.arange(self._sample_number), slice_object)
+                return np.take(np.arange(self._sample_number), valid_values)
             else:
-                return np.take(np.arange(self._variant_number), slice_object)
+                return np.take(np.arange(self._variant_number), valid_values)
 
         else:
             raise TypeError(ec.wrong_slice_type(type(slice_object)))
