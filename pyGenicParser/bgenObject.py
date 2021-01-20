@@ -134,6 +134,26 @@ class BgenObject:
         else:
             return np.array([[i, i] for i in np.arange(self._sample_number)[self.iid_index]])
 
+    def sid_to_index(self, snps, set_failed=False):
+        """Convert a list of snps to a array of indexes"""
+        # If we need to know which failed then we have to check first which snps exist within the full list, as
+        # otherwise we may run into indexing problems, -1 being set for those not in the it and the name otherwise
+        if set_failed:
+            all_snps = self.sid_array()
+            snp_check = [snp if snp in set(all_snps) else -1 for snp in snps]
+
+            # Isolate the names we need to extract indexes for from the snps we checked
+            snp_lookup = [snp for snp in snp_check if isinstance(snp, str)]
+
+            # Construct a dict of snp: index for the ones we can lookup as they exist in all_snps, return the combined
+            # lists
+            snp_ids = {snp: i if snp in snp_lookup else -1 for i, snp in enumerate(all_snps[self.sid_index])}
+            return np.array([snp_ids[snp] if isinstance(snp, str) else snp for snp in snp_check])
+
+        # Otherwise just return the array of snps we find
+        else:
+            return np.array([i for i, snp in enumerate(self.sid_array()[self.sid_index]) if snp in set(snps)])
+
     def info_array(self):
         """Return an array of all the variants in the bgen file"""
         assert self._bgen_index, ec.index_violation("info_array")
