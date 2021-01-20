@@ -112,7 +112,7 @@ class BgenObject:
 
         # Fetching all the seek positions
         self._bgen_index.execute("SELECT rsid FROM Variant")
-        return np.array([name for name in self._bgen_index.fetchall()[self.sid_index]]).flatten()
+        return np.array([name for name in self._bgen_index.fetchall()])[self.sid_index].flatten()
 
     def iid_array(self):
         """
@@ -160,7 +160,7 @@ class BgenObject:
 
         self._bgen_index.execute("SELECT chromosome, position, rsid, allele1, allele2 FROM Variant")
         return np.array([Variant(chromosome, position, snp_id, a1, a2) for chromosome, position, snp_id, a1, a2
-                         in self._bgen_index.fetchall()[self.sid_index]])
+                         in self._bgen_index.fetchall()])[self.sid_index]
 
     def dosage_array(self):
         """Extract all the dosage information in the array"""
@@ -168,7 +168,7 @@ class BgenObject:
         self._bgen_binary = open(self.file_path, "rb")
 
         self._bgen_index.execute("SELECT file_start_position FROM Variant")
-        dosage = np.array([self._get_variant(seek[0], True) for seek in self._bgen_index.fetchall()[self.sid_index]])
+        dosage = np.array([self._get_variant(seek[0], True) for seek in self._bgen_index.fetchall()])[self.sid_index]
         self._bgen_binary.close()
         return dosage
 
@@ -178,11 +178,11 @@ class BgenObject:
         self._bgen_binary = open(self.file_path, "rb")
 
         self._bgen_index.execute("SELECT file_start_position FROM Variant")
-        variants = np.array([self._get_variant(seek[0]) for seek in self._bgen_index.fetchall()[self.sid_index]],
+        variants = np.array([self._get_variant(seek[0]) for seek in self._bgen_index.fetchall()],
                             dtype=object)
 
         self._bgen_binary.close()
-        return variants
+        return self._index_variants(variants)
 
     def info_from_sid(self, snp_names):
         """Construct an array of variant identifiers for all the snps provided to snp_names"""
@@ -199,7 +199,7 @@ class BgenObject:
             print("No names passed - skipping")
 
         return np.array([Variant(chromosome, position, snp_id, a1, a2) for chromosome, position, snp_id, a1, a2
-                         in self._bgen_index.fetchall()])
+                         in self._bgen_index.fetchall()])[self.sid_index]
 
     def dosage_from_sid(self, snp_names):
         """Construct the dosage for all snps provide as a list or tuple of snp_names"""
@@ -207,18 +207,24 @@ class BgenObject:
 
         dosage = np.array([self._get_variant(seek[0], True)[self.iid_index] for seek in self._bgen_index.fetchall()])
         self._bgen_binary.close()
-        return dosage
+        return dosage[self.sid_index]
 
     def variant_from_sid(self, snp_names):
         """Variant information for all snps within snp_names"""
         self._set_snp_names_file_positions(snp_names)
-        variants = np.array([self._get_variant(seek[0])[self.iid_index] for seek in self._bgen_index.fetchall()],
+        variants = np.array([self._get_variant(seek[0]) for seek in self._bgen_index.fetchall()],
                             dtype=object)
+
         self._bgen_binary.close()
-        return variants
+        return self._index_variants(variants)
+
+    def _index_variants(self, variant):
+        """Variants need to be indexed after fetch all as it returns a tuple of np.ndarrays"""
+        return np.array([np.array((info, dosage[self.iid_index]), dtype=object) for info, dosage in variant]
+                        )[self.sid_index]
 
     def _set_snp_names_file_positions(self, snp_names):
-        """A tuple of 1 will lead to sql crashing if using IN, so we need to acount for length 1 arrays"""
+        """A tuple of 1 will lead to sql crashing if using IN, so we need to account for length 1 arrays"""
         assert self._bgen_index, ec.index_violation("dosage_from_sid")
         self._bgen_binary = open(self.file_path, "rb")
 
