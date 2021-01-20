@@ -11,9 +11,9 @@ import zstd
 
 
 class BgenObject:
-    def __init__(self, file_path, bgi_present=True, probability_return=None, probability=0.9,
+    def __init__(self, file_path, bgi_present=True, probability_return=None, probability=0.9, sample_path=None,
                  iid_index=slice(None, None, None), sid_index=slice(None, None, None),
-                 sample_path=None, bgi_write_path=None):
+                 ):
         """
 
         :param file_path:
@@ -27,7 +27,6 @@ class BgenObject:
 
         # Construct paths
         self.file_path = Path(file_path)
-        self._bgi_write_path = bgi_write_path
         self._bgen_binary = open(file_path, "rb")
         self._sample_path = sample_path
 
@@ -523,7 +522,7 @@ class BgenObject:
 
         return bgen_file, bgen_index, last_variant_block
 
-    def create_bgi(self):
+    def create_bgi(self, bgi_write_path=None):
         """
         Mimic bgenix .bgi via python
 
@@ -539,10 +538,10 @@ class BgenObject:
         assert self._layout == 2
 
         # Check if the file already exists
-        if not self._bgi_write_path:
+        if not bgi_write_path:
             write_path = str(self.file_path.absolute()) + ".bgi"
         else:
-            write_path = str(Path(self._bgi_write_path, self.file_path.name).absolute()) + ".bgi"
+            write_path = str(Path(bgi_write_path, self.file_path.name).absolute()) + ".bgi"
 
         if Path(write_path).exists():
             print(f"Bgi Already exists for {self.file_path.name}")

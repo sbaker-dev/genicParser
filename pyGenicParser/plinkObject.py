@@ -8,11 +8,10 @@ import sqlite3
 
 
 class PlinkObject:
-    def __init__(self, genetic_path, bgi_present=False, bgi_write_path=None):
+    def __init__(self, genetic_path, bgi_present=False):
         self.bed_file_path, self.bim_file_path, self.fam_file_path = self.validate_paths(genetic_path)
         self.bim_file = open(self.bim_file_path, "r")
         self.fam_file = open(self.fam_file_path, "r")
-        self._bgi_write_path = bgi_write_path
 
         # Set the bgi file if present, and store this for indexing if required.
         self.bgi_present = bgi_present
@@ -53,7 +52,7 @@ class PlinkObject:
             return np.array([BimVariant(chromosome, variant_id, morgan_pos, bp_position, a1, a2)
                              for chromosome, variant_id, morgan_pos, bp_position, a1, a2 in self.bim_index.fetchall()])
 
-    def create_bim_bgi(self):
+    def create_bim_bgi(self, bgi_write_path=None):
         """
         This will create a 'mock' .bgi akin to bgenix but with a few differences. Firstly, given information of plink is
         stored in different files this new .bgi acts as the old .bim. It contains all the information bim does, but with
@@ -62,10 +61,10 @@ class PlinkObject:
         This also contains some misc data such as the count of iid and sid so that it can be quickly accessed.
         """
         # Check if the file already exists
-        if not self._bgi_write_path:
+        if not bgi_write_path:
             write_path = Path(str(self.bim_file_path.absolute()) + ".bgi")
         else:
-            write_path = str(Path(self._bgi_write_path, self.bim_file_path.name).absolute()) + ".bgi"
+            write_path = str(Path(bgi_write_path, self.bim_file_path.name).absolute()) + ".bgi"
 
         if Path(write_path).exists():
             print(f"Bgi Already exists for {self.bim_file_path.name}")
