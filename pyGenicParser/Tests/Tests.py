@@ -21,7 +21,7 @@ class MyTestCase(unittest.TestCase):
         """Test writing bgen.bgi"""
         bgen_path = Path(Path(__file__).parent, "Data", "EUR.ldpred_21.bgen")
         write_path = Path(Path(__file__).parent, "Data", "Write")
-        BgenObject(bgen_path, bgi_write_path=write_path).create_bgi()
+        BgenObject(bgen_path).create_bgi(write_path)
 
         out_path = Path(Path(__file__).parent, "Data", "Write", "EUR.ldpred_21.bgen.bgi")
         assert out_path.exists()
@@ -32,18 +32,23 @@ class MyTestCase(unittest.TestCase):
         """Test writing bim.bgi"""
         bim_path = Path(Path(__file__).parent, "Data", "EUR.ldpred_21.bim")
         write_path = Path(Path(__file__).parent, "Data", "Write")
-        PlinkObject(bim_path, bgi_write_path=write_path).create_bim_bgi()
+        PlinkObject(bim_path, write_path).create_bim_bgi(write_path)
 
         out_path = Path(Path(__file__).parent, "Data", "Write", "EUR.ldpred_21.bim.bgi")
         assert out_path.exists()
         out_path.unlink()
+
+    @staticmethod
+    def _loader():
+        """Call the bgen file"""
+        return BgenObject(Path(Path(__file__).parent, "Data", "EUR.ldpred_21.bgen"))
 
     def test_stats(self):
         """
         Check that we successfully parse the number of individuals and snps, check the length of arrays are equal to
         these stats values
         """
-        bgen = BgenObject(Path(Path(__file__).parent, "Data", "EUR.ldpred_21.bgen"))
+        bgen = self._loader()
 
         self.assertEqual(bgen.iid_count, 483)
         self.assertEqual(bgen.sid_count, 7909)
@@ -53,7 +58,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_parsers(self):
         """Test that loading the full array of snps actually returns all the snps"""
-        bgen = BgenObject(Path(Path(__file__).parent, "Data", "EUR.ldpred_21.bgen"))
+        bgen = self._loader()
 
         self.assertEqual(bgen.sid_count, 7909)
 
@@ -62,8 +67,8 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(len(bgen.dosage_array()), bgen.sid_count)
 
     def test_extractors(self):
-        """Test all extractors work based on our three if elif else statments of len(snps) > 1, ==1, 0"""
-        bgen = BgenObject(Path(Path(__file__).parent, "Data", "EUR.ldpred_21.bgen"))
+        """Test all extractors work based on our three if elif else statements of len(snps) > 1, ==1, 0"""
+        bgen = self._loader()
 
         self.assertEqual(bgen.sid_count, 7909)
 
