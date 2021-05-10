@@ -235,6 +235,7 @@ class BgenObject:
 
         dosage = np.array([self._get_variant(seek[0], True)[self.iid_index] for seek in self._bgen_index.fetchall()])
         self._bgen_binary.close()
+        # todo This is causing errors in pgp, should we really be indexing on SID when we are taken a tuple of names?
         return dosage[self.sid_index]
 
     def variant_from_sid(self, snp_names):
@@ -695,6 +696,7 @@ class BgenObject:
         """
         return self._bgen_binary.read(self._unpack(struct_format, size)).decode()
 
+    # todo: Update to use miscSupports instead
     def _unpack(self, struct_format, size, list_return=False):
         """
         Use a given struct formatting to unpack a byte code
