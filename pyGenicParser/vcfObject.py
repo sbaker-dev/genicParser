@@ -1,5 +1,7 @@
-from miscSupports import validate_path, open_setter, decode_line, flatten
-from csvObject import write_csv
+from miscSupports import validate_path, open_setter, decode_line, flatten, terminal_time
+from pathlib import Path
+import numpy as np
+import gzip
 
 
 class VCFObject:
@@ -20,6 +22,7 @@ class VCFObject:
             self._format_length = 0
 
         # Extract known header titles as dicts
+        self._vcf_dict = self._vcf_dict_raw()
         self._info_dict = self._set_vcf_header("INFO=", "info")
         self._format_dict = self._set_vcf_header("FORMAT=", "format")
         self._meta_dict = self._set_vcf_header("META=", "meta")
@@ -29,6 +32,7 @@ class VCFObject:
                             for index in range(self._format_length)])
 
         self.header_dict = {header: index for index, header in enumerate(all_headers)}
+        self.write_headers = {header: True for header in self.header_dict.keys()}
 
     def _extract_headers(self):
         """
@@ -62,6 +66,16 @@ class VCFObject:
         VCF files uses ## and # to denote VCF headers and data headers respectively. Both \n and \t may be present
         """
         return text.replace("#", "").replace("\n", "").replace("\t", "")
+
+    @staticmethod
+    def _vcf_dict_raw():
+        raw_headers = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER"]
+        raw_types = [int, int, str, str, str, str, str]
+        descriptions = ["Chromosome", "Base pair position", "Variant Rs ID", "Reference allele", "Alternative allele",
+                        "Phred-scaled quality", "If the variant passed QC Filters"]
+
+        return {h: {"Number": 1, "Type": h_type, "Description": h_des, "Index": index}
+                for index, (h, h_type, h_des) in enumerate(zip(raw_headers, raw_types, descriptions))}
 
     def _set_vcf_header(self, header_separator, header_unique):
         """
@@ -105,7 +119,7 @@ class VCFObject:
             else:
                 raise TypeError(f"Unexpected type of {variable_type} found in header")
 
-    def covert_to_summary(self, info=True):
+    def covert_to_summary(self, write_directory, write_name, info=True, log_p_convert=None):
 
         out_rows = []
         with open_setter(self._path)(self._path) as file:
@@ -120,7 +134,7 @@ class VCFObject:
                 line = decode_line(line_byte, self._zipped, "\t")
 
                 row = line[:7] + ["NA" for _ in range(len(self._info_dict.keys()))] + \
-                      ["NA" for _ in range(len(self._format_dict.keys()) * self._format_length)]
+                    ["NA" for _ in range(len(self._format_dict.keys()) * self._format_length)]
 
                 if ("INFO" in self.data_headers) and info:
 
@@ -138,13 +152,29 @@ class VCFObject:
                         parameter_values = line[i].replace("\n", "").split(":")
 
                         for name, value in zip(parameter_names, parameter_values):
-                            row[self.header_dict[f"{name}_format_{index}"]] = value
+                            header_name = f"{name}_format_{index}"
 
-                out_rows.append(row)
+                            # If p values are stored as log's, convert them if requested
+                            if log_p_convert and (header_name == log_p_convert):
+                                value = str(10 ** -float(value))
 
-        write_csv(r"C:\Users\Samuel\Documents\Genetic_Examples", "Test", list(self.header_dict.keys()), out_rows)
+                            row[self.header_dict[header_name]] = value
 
+                out_rows.append(np.array(row)[np.array(list(self.write_headers.values()))].tolist())
 
+        self._write_summary(write_directory, write_name, out_rows)
 
-if __name__ == '__main__':
-    VCFObject(r"C:\Users\Samuel\Documents\Genetic_Examples\ukb-b-6134.vcf.gz").covert_to_summary()
+    def _write_summary(self, write_directory, write_name, out_rows):
+        with gzip.open(Path(write_directory, f"{write_name}.tsv.gz"), "wb") as f:
+
+            f.write("\t".join([key for key, value in list(self.write_headers.items()) if value]).encode("utf-8"))
+            f.write("\n".encode("utf-8"))
+
+            for index, row in enumerate(out_rows):
+                if index % 100000 == 0:
+                    print(f"Written {index} lines")
+
+                f.write("\t".join([value for value in row]).encode("utf-8"))
+                f.write("\n".encode("utf-8"))
+
+        print(f"Finished writing {len(out_rows)} lines to gzipped csv at {terminal_time()}")
